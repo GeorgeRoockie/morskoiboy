@@ -1,5 +1,7 @@
 from extensions import *
 from config import *
+
+
 class Board:
     def __init__(self):
         self.matrix = self.create_board()
