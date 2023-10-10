@@ -27,11 +27,11 @@ class Board:
     def add_ship(self, row, column, route, length):
         try:
             CheckIndeces.is_available_indeces(self.matrix, row, column, route, length)
+            self.ship.list_of_ships = CheckIndeces().check_used_ships(self.ship.list_of_ships, length)
         except (IndexException, UserException) as e:
-            print(f'Ошибка пользователя \n{e}')
+            print(f'Ошибка пользователя.\n{e}')
         else:
-            self.indeces = self.ship.create_ship(row, column, route, length)
-            for i in self.indeces:
+            for i in self.ship.create_ship(row, column, route, length):
                 if len(i) != 0:
                     for j in i:
                         self.matrix[j[0]][j[1]] = MARK_OF_SHIP
@@ -39,9 +39,9 @@ class Board:
 
     def countour(self, route):
         COUNTOUR_RAISE = MARK_OF_SHIP + '-123456'
-        for i in self.indeces:
-            for j in i:
-                if route:
+        if route:
+            for i in self.ship.list_of_indeces:
+                for j in i:
                     try:
                         if str(self.matrix[j[0] - 1][j[1]]) not in COUNTOUR_RAISE:
                             self.matrix[j[0] - 1][j[1]] = TERRYTORY_OF_SHIP
@@ -68,7 +68,9 @@ class Board:
                             self.matrix[j[0] + 1][j[1] + 1] = TERRYTORY_OF_SHIP
                     except IndexError:
                         pass
-                else:
+        else:
+            for i in self.ship.list_of_indeces:
+                for j in i:
                     try:
                         if str(self.matrix[j[0]][j[1] - 1]) not in COUNTOUR_RAISE:
                             self.matrix[j[0]][j[1] - 1] = TERRYTORY_OF_SHIP
@@ -115,16 +117,7 @@ class Ship:
                 tpl = (row, column + i)
                 self.list_of_indeces[self.counter].append(tpl)
             self.counter += 1
-        check_deleted_ship = len(self.list_of_ships)
-        for j in range(len(self.list_of_ships)): #Удаляем поставленный корабль из списка доступных
-            if len(self.list_of_ships[j]) == length:
-                del self.list_of_ships[j]
-                break
-        try:
-            if len(self.list_of_ships) == check_deleted_ship: #Смысл в том, что если список не изменился, значит корабль был уже взять, тем самым, вызвав ошибку, не дадим взять новый
-                raise UserException('Этот корабль недоступен!')#Это будет доделываться, когда напишу класс пользователя
-        except UserException:
-            print('Корабли такой длины закончились')
+
 
         print(self.list_of_ships)
         print(self.list_of_indeces)
@@ -139,7 +132,6 @@ while True:
         s = [int(i) for i in input().split()]
         row, col, route, length = s
         b.add_ship(row, col, route, length)
-        b.get_board()
 '''
 b.add_ship(4, 3, 1, 3)
 b.get_board()
