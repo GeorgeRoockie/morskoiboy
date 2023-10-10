@@ -6,6 +6,17 @@ class UserException(Exception):
     pass
 class CheckIndeces:
     @staticmethod
+    def check_used_ships(los, length): #Если корабль доступен в списке, возвращает список, вычеркивая из него этот корабль
+        flag = False
+        for i in los:
+            if len(i) == length:
+                flag = True
+                los.remove(i)
+                break
+        if not flag:
+            raise UserException('Корабли этого типа закончились.')
+        return los
+    @staticmethod
     def create_ship(row, column, route, length):
         list_of_indeces = [[], [], [], [], [], [], [],]
         counter = 0
