@@ -1,0 +1,3 @@
+FREE_CELL = 'O'
+TERRYTORY_OF_SHIP = '-'
+MARK_OF_SHIP = '■'
