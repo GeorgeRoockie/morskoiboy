@@ -143,6 +143,7 @@ class Board:
             print(f'Ошибка пользователя.\n{e}')
         else:
             self.list_of_indeces.append(create_ship(row, column, route, length))
+            Ship(self.list_of_indeces[self.counter]).get_ship()
             self.limit = los.copy()
             for i in self.list_of_indeces[self.counter]:
                 dot = Dot(*i)
