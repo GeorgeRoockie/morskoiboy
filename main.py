@@ -1,14 +1,25 @@
 from extensions import *
 from config import *
+import random
 
 class Board:
     def __init__(self):
         self.matrix = self.create_board()
         self.limit = [('■', '■', '■'), ('■', '■'), ('■', '■'), ('■'), ('■'), ('■'), ('■')]  # Если список окажется пуст, вызовем ошибку
         self.list_of_indeces = []  # Будем сюда добавлять индексы расположения кораблей во время их создания
-        self.counter = 0
-        self.list_of_shots = []
-    def create_board(self):
+        self.list_of_indeces_shots = [[]] # Индексы выстрелов
+        self.counter_of_ships = 0
+        self.enemy_matrix = self.create_board()
+    def get_my_board(self):
+        for i in range(len(self.matrix)):
+            print(*self.matrix[i], end='')
+            print()
+    def get_enemy_board(self):
+        for i in range(len(self.enemy_matrix)):
+            print(*self.enemy_matrix[i], end='')
+            print()
+    @staticmethod
+    def create_board():
         matrix = []
         for _ in range(7):
             temp = [i for i in range(7)]
@@ -21,13 +32,7 @@ class Board:
                     matrix[row][col] = FREE_CELL
         matrix[0][0] = ' '
         return matrix
-
-    def get_board(self):
-        for i in range(len(self.matrix)):
-            print(*self.matrix[i], end='')
-            print()
-
-    def add_ship(self, row, column, route, length):
+    def add_ship(self, row, col, route, length):
         try:
             @staticmethod
             def check_used_ships(los, length):  # Если корабль доступен в списке, возвращает список, вычеркивая из него этот корабль
@@ -42,20 +47,9 @@ class Board:
                 return los
 
             @staticmethod
-            def create_ship(row, column, route, length):
-                list_of_indeces = []
-                if route:
-                    for i in range(length):
-                        tpl = (row + i, column)
-                        list_of_indeces.append(tpl)
-                else:
-                    for i in range(length):
-                        tpl = (row, column + i)
-                        list_of_indeces.append(tpl)
-                return list_of_indeces
-
-            @staticmethod
             def is_available_indeces_of_ship(matrix, row, col, route, length):
+                if matrix[row][col] == MARK_OF_SHIP:
+                    raise UserException('В этой точке уже стоит корабль')
                 if route != 0 and route != 1:
                     raise UserException('1 - вертикальное направление \n0 - горизонтальное направление')
                 if length > 3 or length < 0:
@@ -69,7 +63,7 @@ class Board:
                             f'Горизонтальный корабль, длиной {length} по координатам ({row};{col}), не вмещается в поле.\nПопробуйте сменить направление, либо координаты.')
                 else:
                     raise IndexException(f'Введены неверные координаты: ({row};{col})')
-                s = create_ship(row, col, route, length)
+                s = Ship(length, (row, col), route).dots()
                 if route:
                     for i in s:
                         dot = Dot(*i)
@@ -137,80 +131,82 @@ class Board:
                         except IndexError:
                             pass
 
-            los = check_used_ships(self.limit, length)
             is_available_indeces_of_ship(self.matrix, row, col, route, length)
+            los = check_used_ships(self.limit, length)
         except (IndexException, UserException) as e:
             print(f'Ошибка пользователя.\n{e}')
         else:
-            self.list_of_indeces.append(create_ship(row, column, route, length))
-            Ship(self.list_of_indeces[self.counter]).get_ship()
-            self.limit = los.copy()
-            for i in self.list_of_indeces[self.counter]:
+            self.list_of_indeces.append(Ship(length, (row, col), route).dots())
+
+            for i in self.list_of_indeces[self.counter_of_ships]:
                 dot = Dot(*i)
                 self.matrix[dot.x][dot.y] = MARK_OF_SHIP
-            self.countour(route)
-            self.counter += 1
+            self.matrix = self.countour(route, self.matrix, self.counter_of_ships, self.list_of_indeces)
+            self.limit = los.copy()
+            self.counter_of_ships += 1
 
-    def countour(self, route):
-        COUNTOUR_RAISE = MARK_OF_SHIP + '-123456'
+    def countour(self, route, matrix, counter, indeces):
+        COUNTOUR_RAISE = MARK_OF_SHIP + '-123456' + HIT_MISS + HIT_IN_SHIP
         if route:
-            for i in self.list_of_indeces[self.counter]:
+            for i in indeces[counter]:
                 dot = Dot(*i)
                 try:
-                    if str(self.matrix[dot.x - 1][dot.y]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x - 1][dot.y] = TERRYTORY_OF_SHIP
-                        if str(self.matrix[dot.x - 1][dot.y - 1]) not in COUNTOUR_RAISE:
-                            self.matrix[dot.x - 1][dot.y - 1] = TERRYTORY_OF_SHIP
-                    if str(self.matrix[dot.x - 1][dot.y + 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x - 1][dot.y + 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x - 1][dot.y]) not in COUNTOUR_RAISE:
+                        matrix[dot.x - 1][dot.y] = TERRYTORY_OF_SHIP
+                        if str(matrix[dot.x - 1][dot.y - 1]) not in COUNTOUR_RAISE:
+                            matrix[dot.x - 1][dot.y - 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x - 1][dot.y + 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x - 1][dot.y + 1] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
 
-                if str(self.matrix[dot.x][dot.y - 1]) not in COUNTOUR_RAISE:
-                    self.matrix[dot.x][dot.y - 1] = TERRYTORY_OF_SHIP
+                if str(matrix[dot.x][dot.y - 1]) not in COUNTOUR_RAISE:
+                    matrix[dot.x][dot.y - 1] = TERRYTORY_OF_SHIP
                 try:
-                    if self.matrix[dot.x][dot.y + 1] not in COUNTOUR_RAISE:
-                        self.matrix[dot.x][dot.y + 1] = TERRYTORY_OF_SHIP
+                    if matrix[dot.x][dot.y + 1] not in COUNTOUR_RAISE:
+                        matrix[dot.x][dot.y + 1] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
                 try:
-                    if str(self.matrix[dot.x + 1][dot.y]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x + 1][dot.y] = TERRYTORY_OF_SHIP
-                        if str(self.matrix[dot.x + 1][dot.y - 1]) not in COUNTOUR_RAISE:
-                            self.matrix[dot.x + 1][dot.y - 1] = TERRYTORY_OF_SHIP
-                    if str(self.matrix[dot.x + 1][dot.y + 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x + 1][dot.y + 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x + 1][dot.y]) not in COUNTOUR_RAISE:
+                        matrix[dot.x + 1][dot.y] = TERRYTORY_OF_SHIP
+                        if str(matrix[dot.x + 1][dot.y - 1]) not in COUNTOUR_RAISE:
+                            matrix[dot.x + 1][dot.y - 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x + 1][dot.y + 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x + 1][dot.y + 1] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
+            return matrix
         else:
-            for i in self.list_of_indeces[self.counter]:
+            for i in indeces[counter]:
                 dot = Dot(*i)
                 try:
-                    if str(self.matrix[dot.x][dot.y - 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x][dot.y - 1] = TERRYTORY_OF_SHIP
-                        if str(self.matrix[dot.x - 1][dot.y - 1]) not in COUNTOUR_RAISE:
-                            self.matrix[dot.x - 1][dot.y - 1] = TERRYTORY_OF_SHIP
-                    if str(self.matrix[dot.x + 1][dot.y - 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x + 1][dot.y - 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x][dot.y - 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x][dot.y - 1] = TERRYTORY_OF_SHIP
+                        if str(matrix[dot.x - 1][dot.y - 1]) not in COUNTOUR_RAISE:
+                            matrix[dot.x - 1][dot.y - 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x + 1][dot.y - 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x + 1][dot.y - 1] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
 
-                if str(self.matrix[dot.x - 1][dot.y]) not in COUNTOUR_RAISE:
-                    self.matrix[dot.x - 1][dot.y] = TERRYTORY_OF_SHIP
+                if str(matrix[dot.x - 1][dot.y]) not in COUNTOUR_RAISE:
+                    matrix[dot.x - 1][dot.y] = TERRYTORY_OF_SHIP
                 try:
-                    if self.matrix[dot.x + 1][dot.y] not in TERRYTORY_OF_SHIP:
-                        self.matrix[dot.x + 1][dot.y] = TERRYTORY_OF_SHIP
+                    if matrix[dot.x + 1][dot.y] not in COUNTOUR_RAISE:
+                        matrix[dot.x + 1][dot.y] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
                 try:
-                    if str(self.matrix[dot.x][dot.y + 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x][dot.y + 1] = TERRYTORY_OF_SHIP
-                        if str(self.matrix[dot.x - 1][dot.y + 1]) not in COUNTOUR_RAISE:
-                            self.matrix[dot.x - 1][dot.y + 1] = TERRYTORY_OF_SHIP
-                    if str(self.matrix[dot.x + 1][dot.y + 1]) not in COUNTOUR_RAISE:
-                        self.matrix[dot.x + 1][dot.y + 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x][dot.y + 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x][dot.y + 1] = TERRYTORY_OF_SHIP
+                        if str(matrix[dot.x - 1][dot.y + 1]) not in COUNTOUR_RAISE:
+                            matrix[dot.x - 1][dot.y + 1] = TERRYTORY_OF_SHIP
+                    if str(matrix[dot.x + 1][dot.y + 1]) not in COUNTOUR_RAISE:
+                        matrix[dot.x + 1][dot.y + 1] = TERRYTORY_OF_SHIP
                 except IndexError:
                     pass
+            return matrix
 
     def shot(self, x, y):
         dot = Dot(x, y)
@@ -225,15 +221,28 @@ class Board:
         else:
             if MARK_OF_SHIP in self.matrix[dot.x][dot.y]:
                 self.matrix[dot.x][dot.y] = HIT_IN_SHIP
+                self.enemy_matrix[dot.x][dot.y] = HIT_IN_SHIP
+                self.list_of_indeces_shots[0].append((dot.x, dot.y))
                 for index in range(len(self.list_of_indeces)):
                     if (dot.x, dot.y) in self.list_of_indeces[index]:
+                        los1 = len(self.list_of_indeces[index]) - self.list_of_indeces[index].count(HIT_IN_SHIP)
                         self.list_of_indeces[index].append(HIT_IN_SHIP)
-                        Ship(self.list_of_indeces[index]).get_ship()
+                        self.is_ship_killed(los1, self.list_of_indeces[index])
                         return True
             else:
                 self.matrix[dot.x][dot.y] = HIT_MISS
+                self.enemy_matrix[dot.x][dot.y] = HIT_MISS
                 return False
+    def is_ship_killed(self, los1, los2):
+        if Ship(los1, los2[0]).check_hp(len(los2)) == 0:
+            print('Корабль убит')
+            if los1 != 1:
+                route = Ship(los2, los2[0]).get_route()
+            else:
+                route = 1
+            self.enemy_matrix = self.countour(route, self.enemy_matrix, 0, self.list_of_indeces_shots)
 
+            
 
 class Dot:
     def __init__(self, x, y):
@@ -245,30 +254,94 @@ class Dot:
 
 
 class Ship:
-    def __init__(self, ship):
-        self.length = len(ship) - ship.count(HIT_IN_SHIP)
-        self.dot = ship[0]
-        if HIT_IN_SHIP in ship:
-            self.hp = f'{self.length - ship.count(HIT_IN_SHIP)}\{self.length}'
+    def __init__(self, length, dot, route=None):
+        self.length = length
+        self.dot = Dot(*dot)
+        self.route = route
+        self.hp = None
+
+    def dots(self):
+        list_of_indeces = []
+        if self.route:
+            for i in range(self.length):
+                tpl = (self.dot.x + i, self.dot.y)
+                list_of_indeces.append(tpl)
         else:
-            self.hp = f'{self.length}\{self.length}'
+            for i in range(self.length):
+                tpl = (self.dot.x, self.dot.y + i)
+                list_of_indeces.append(tpl)
+        return list_of_indeces
+    def check_hp(self, los2):
+        self.hp = self.length - los2 + self.length
+        return self.hp
+    def get_route(self):
+        if self.length[0][0] != self.length[1][0]:
+            return 1
+        else:
+            return 0
+class Player:
+    def __init__(self):
+        self.matrix = Board().matrix
+        self.enemy_matrix = Board().enemy_matrix
+        self.moves = Board()
 
-    def get_ship(self):
-        print(f'Корабль длиной: {self.length}\nТочка носа коробля: {self.dot}\nЗдоровье: {self.hp}')
+    def ask(self):
+        pass
+    def move(self):
+        self.moves.shot(*self.ask())
 
-
-
-
-
-b = Board()
-
-while True:
-    b.get_board()
-    n = input()
-    if n == 'y':
+class User(Player):
+    def ask(self):
+        print('Введите координаты точки, куда хотите выстрелить')
         s = [int(i) for i in input().split()]
-        row, col, route, length = s
-        b.add_ship(row, col, route, length)
-        print(b.list_of_indeces)
-    if n == 's':
-        b.shot(int(input()), int(input()))
+        x, y = s
+        return x, y
+
+class AI(Player):
+    pass
+
+
+class Game: # не доделан
+    def __init__(self):
+        self.user = User()
+        self.ai = AI()
+    def start(self):
+        print(f'Хотите, чтобы корабли расставились автоматически?\nY - Да\nN - Нет')
+        ans = input().lower()
+        if ans == 'y':
+            self.random_board()
+        while True:
+            self.user.moves.get_enemy_board()
+            print('-------------')
+            self.user.moves.get_my_board()
+            n = input()
+            if n == 'y':
+                s = [int(i) for i in input().split()]
+                row, col, route, length = s
+                self.user.moves.add_ship(row, col, route, length)
+                print(self.user.moves.list_of_indeces)
+            if n == 's':
+                self.user.move()
+    def random_board(self):
+        counter = 0
+        while counter < 100:
+            length = len(self.user.moves.limit[0])
+            row = random.randint(1, 6)
+            col = random.randint(1, 6)
+            route = random.randint(0, 1)
+            self.user.moves.add_ship(row, col, route, length)
+            if len(self.user.moves.limit) == 0:
+                break
+            counter += 1
+        if len(self.user.moves.limit) != 0:
+            print()
+            print('ПЕРЕСОБИРАЕМ')
+            print()
+            self.user.moves.matrix = self.user.moves.create_board()
+            self.user.moves.limit = [('■', '■', '■'), ('■', '■'), ('■', '■'), ('■'), ('■'), ('■'), ('■')]  # Если список окажется пуст, вызовем ошибку
+            self.user.moves.list_of_indeces = []  # Будем сюда добавлять индексы расположения кораблей во время их создания
+            self.user.moves.counter_of_ships = 0
+            self.random_board()
+
+
+Game().start()
